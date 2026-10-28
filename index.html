@@ -1,0 +1,245 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><style>[hidden]{display:none!important}body{margin:0}</style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Golos+Text:wght@400;500;600&display=swap">
+<title>RPE-калькулятор</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one narrow column, sized for a phone in one hand at the gym; result number is the hero. */
+:root{
+  --bg:#E9EDEF; --surface:#F8FAFA; --fg:#14191C; --muted:#5B676E; --line:#CFD7DB;
+  --accent:#1E5AA8; --accent-ink:#FFFFFF; --chip:#DDE4E7;
+  --display:"Oswald","Arial Narrow",Arial,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101416; --surface:#1A2023; --fg:#E8EDEF; --muted:#94A1A8; --line:#2C363B;
+  --accent:#6FA4EA; --accent-ink:#0C1620; --chip:#242C30; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101416; --surface:#1A2023; --fg:#E8EDEF; --muted:#94A1A8; --line:#2C363B;
+  --accent:#6FA4EA; --accent-ink:#0C1620; --chip:#242C30; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--display);font-weight:600;font-size:28px;letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:12px;padding:4px;gap:4px}
+.tabs button{border:0;background:transparent;color:var(--fg);font:600 14px var(--body);padding:10px 6px;border-radius:9px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.panel{display:flex;flex-direction:column;gap:16px}
+.field{display:flex;flex-direction:column;gap:6px}
+.label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.num{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.num input{flex:1;min-width:0;border:0;background:transparent;color:var(--fg);font:500 26px var(--display);padding:8px 12px;font-variant-numeric:tabular-nums}
+.num input:focus{outline:none}
+.num:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+.num .unit{align-self:center;color:var(--muted);padding-right:8px;font-size:14px}
+.num button{border:0;border-left:1px solid var(--line);background:transparent;color:var(--fg);font:600 20px var(--body);width:52px;cursor:pointer}
+.chips{display:grid;gap:6px}
+.chips.reps{grid-template-columns:repeat(6,1fr)}
+.chips.rpe{grid-template-columns:repeat(8,1fr)}
+.chips.step{grid-template-columns:repeat(4,1fr)}
+.chips button{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:500 16px var(--display);padding:9px 0;border-radius:9px;cursor:pointer;font-variant-numeric:tabular-nums;position:relative}
+.chips.rpe button::after{content:"";position:absolute;left:6px;right:6px;bottom:3px;height:3px;border-radius:2px;background:var(--heat)}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{font-size:12px;color:var(--muted)}
+.result{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.result .big{font-family:var(--display);font-weight:600;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.result .big small{font-size:22px;font-weight:500;color:var(--muted);margin-left:4px}
+.result .line{color:var(--muted);font-size:14px}
+.result .line b{color:var(--fg);font-weight:600}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.split .result .big{font-size:40px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+summary{cursor:pointer;font-weight:600}
+.tablebox{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12px;width:100%}
+th,td{padding:5px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600}
+td.hl{background:var(--accent);color:var(--accent-ink);font-weight:600;border-radius:4px}
+.foot{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.chips button,.tabs button{transition:background .12s,color .12s}}
+</style></head><body>
+
+<div class="wrap">
+  <header>
+    <h1>RPE-калькулятор</h1>
+    <div class="sub">Братство Протрузии · таблица из аннотации программы</div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-a" role="tab" aria-selected="true" data-tab="a">Вес от максимума</button>
+    <button id="tab-b" role="tab" aria-selected="false" data-tab="b">От сделанного подхода</button>
+  </div>
+
+  <!-- Mode A -->
+  <section class="panel" id="panel-a">
+    <div class="field">
+      <span class="label">Ваш разовый максимум (1ПМ)</span>
+      <div class="num">
+        <button type="button" data-step="-2.5" data-for="a-max" aria-label="Минус 2,5 кг">−</button>
+        <input id="a-max" inputmode="decimal" value="150" aria-label="1ПМ, кг">
+        <span class="unit">кг</span>
+        <button type="button" data-step="2.5" data-for="a-max" aria-label="Плюс 2,5 кг">+</button>
+      </div>
+    </div>
+    <div class="field"><span class="label">Повторов в подходе</span><div class="chips reps" id="a-reps"></div></div>
+    <div class="field"><span class="label">RPE</span><div class="chips rpe" id="a-rpe"></div></div>
+    <div class="result" aria-live="polite">
+      <span class="label">Рабочий вес</span>
+      <div class="big" id="a-out">—</div>
+      <div class="line" id="a-line"></div>
+    </div>
+  </section>
+
+  <!-- Mode B -->
+  <section class="panel" id="panel-b" hidden>
+    <div class="field">
+      <span class="label">Сделанный подход: вес</span>
+      <div class="num">
+        <button type="button" data-step="-2.5" data-for="b-w" aria-label="Минус 2,5 кг">−</button>
+        <input id="b-w" inputmode="decimal" value="140" aria-label="Вес подхода, кг">
+        <span class="unit">кг</span>
+        <button type="button" data-step="2.5" data-for="b-w" aria-label="Плюс 2,5 кг">+</button>
+      </div>
+    </div>
+    <div class="field"><span class="label">Сколько повторов сделали</span><div class="chips reps" id="b-reps"></div></div>
+    <div class="field"><span class="label">На каком RPE ощущалось</span><div class="chips rpe" id="b-rpe"></div></div>
+    <div class="result" aria-live="polite">
+      <span class="label">Расчётный максимум</span>
+      <div class="big" id="b-out">—</div>
+      <div class="line" id="b-line"></div>
+    </div>
+    <div class="field"><span class="label">Следующий подход: повторов</span><div class="chips reps" id="c-reps"></div></div>
+    <div class="field"><span class="label">Следующий подход: RPE</span><div class="chips rpe" id="c-rpe"></div></div>
+    <div class="result" aria-live="polite">
+      <span class="label">Вес на следующий подход</span>
+      <div class="big" id="c-out">—</div>
+      <div class="line" id="c-line"></div>
+    </div>
+  </section>
+
+  <div class="field">
+    <span class="label">Округлять до</span>
+    <div class="chips step" id="step"></div>
+  </div>
+
+  <details id="tbl">
+    <summary>Таблица RPE → % от 1ПМ</summary>
+    <div class="tablebox"><table id="pct"></table></div>
+  </details>
+
+  <p class="foot">RPE — сколько повторов остаётся в запасе до технического отказа: @8 — два, @7 — три. Таблица ориентировочная: автор программы предлагает её тем, кому привычнее проценты, а главный ориентир — ощущения. Округление веса добавлено в калькулятор, в программе его нет.</p>
+</div>
+
+<script>
+(function(){
+  var RPE=[10,9.5,9,8.5,8,7.5,7,6.5];
+  var P={
+    10:[100.0,95.5,92.2,89.2,86.3,83.7,81.1,78.6,76.2,73.9,70.7,68.0],
+    9.5:[97.8,93.9,90.7,87.8,85.0,82.4,79.9,77.4,75.1,72.3,69.4,66.7],
+    9:[95.5,92.2,89.2,86.3,83.7,81.1,78.6,76.2,73.9,70.7,68.0,65.3],
+    8.5:[93.9,90.7,87.8,85.0,82.4,79.9,77.4,75.1,72.3,69.4,66.7,64.0],
+    8:[92.2,89.2,86.3,83.7,81.1,78.6,76.2,73.9,70.7,68.0,65.3,62.6],
+    7.5:[90.7,87.8,85.0,82.4,79.9,77.4,75.1,72.3,69.4,66.7,64.0,61.3],
+    7:[89.2,86.3,83.7,81.1,78.6,76.2,73.9,70.7,68.0,65.3,62.6,59.9],
+    6.5:[87.8,85.0,82.4,79.9,77.4,75.1,72.3,69.4,66.7,64.0,61.3,58.6]
+  };
+  var HEAT={10:"#D7372B",9.5:"#E2592C",9:"#E9782F",8.5:"#EE9A33",8:"#E9BB39",7.5:"#C2C442",7:"#8DBB4C",6.5:"#5AAE55"};
+  var KEY="rpe-calc-v1";
+  var st={tab:"a",aReps:3,aRpe:8,bReps:3,bRpe:8,cReps:5,cRpe:8,step:2.5,aMax:"150",bW:"140"};
+  try{var s=JSON.parse(localStorage.getItem(KEY)||"null"); if(s) for(var k in s) if(k in st) st[k]=s[k];}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+  function $(id){return document.getElementById(id)}
+  function fmt(x,d){return (Math.round(x*Math.pow(10,d))/Math.pow(10,d)).toString().replace(".",",")}
+  function rpeStr(r){return String(r).replace(".",",")}
+  function parse(v){var n=parseFloat(String(v).replace(",",".").replace(/[^\d.]/g,""));return isFinite(n)?n:NaN}
+  function round(x){return st.step>0?Math.round(x/st.step)*st.step:x}
+  function pct(rpe,reps){return P[rpe][reps-1]/100}
+
+  function chips(id,values,key,label,heat){
+    var box=$(id); box.innerHTML="";
+    values.forEach(function(v){
+      var b=document.createElement("button"); b.type="button"; b.textContent=label(v);
+      b.setAttribute("aria-pressed",String(st[key]===v));
+      if(heat) b.style.setProperty("--heat",HEAT[v]);
+      b.addEventListener("click",function(){st[key]=v; refreshChips(); calc();});
+      b.dataset.v=v; b.dataset.key=key; box.appendChild(b);
+    });
+  }
+  function refreshChips(){
+    document.querySelectorAll(".chips button").forEach(function(b){
+      b.setAttribute("aria-pressed",String(String(st[b.dataset.key])===b.dataset.v));
+    });
+  }
+  var REPS=[1,2,3,4,5,6,7,8,9,10,11,12], RPES=RPE.slice().reverse();
+  chips("a-reps",REPS,"aReps",String); chips("b-reps",REPS,"bReps",String); chips("c-reps",REPS,"cReps",String);
+  chips("a-rpe",RPES,"aRpe",rpeStr,true); chips("b-rpe",RPES,"bRpe",rpeStr,true); chips("c-rpe",RPES,"cRpe",rpeStr,true);
+  chips("step",[0,1,2.5,5],"step",function(v){return v===0?"нет":fmt(v,1)+" кг"});
+
+  $("a-max").value=st.aMax; $("b-w").value=st.bW;
+  ["a-max","b-w"].forEach(function(id){
+    $(id).addEventListener("input",function(){ if(id==="a-max") st.aMax=this.value; else st.bW=this.value; calc(); });
+  });
+  document.querySelectorAll("[data-step]").forEach(function(b){
+    b.addEventListener("click",function(){
+      var inp=$(b.dataset.for), v=parse(inp.value); if(!isFinite(v)) v=0;
+      v=Math.max(0,v+parseFloat(b.dataset.step)); inp.value=fmt(v,2);
+      inp.dispatchEvent(new Event("input"));
+    });
+  });
+  document.querySelectorAll(".tabs button").forEach(function(b){
+    b.addEventListener("click",function(){st.tab=b.dataset.tab; showTab(); save();});
+  });
+  function showTab(){
+    document.querySelectorAll(".tabs button").forEach(function(b){b.setAttribute("aria-selected",String(b.dataset.tab===st.tab));});
+    $("panel-a").hidden=st.tab!=="a"; $("panel-b").hidden=st.tab!=="b"; buildTable();
+  }
+
+  function calc(){
+    var m=parse(st.aMax), p=pct(st.aRpe,st.aReps);
+    if(isFinite(m)&&m>0){
+      $("a-out").innerHTML=fmt(round(m*p),2)+"<small>кг</small>";
+      $("a-line").innerHTML="<b>"+st.aReps+" × @"+rpeStr(st.aRpe)+"</b> = "+fmt(p*100,1)+"% от 1ПМ · точно "+fmt(m*p,1)+" кг";
+    } else {$("a-out").textContent="—"; $("a-line").textContent="Введите максимум в килограммах";}
+
+    var w=parse(st.bW), pb=pct(st.bRpe,st.bReps);
+    if(isFinite(w)&&w>0){
+      var e=w/pb, pc=pct(st.cRpe,st.cReps);
+      $("b-out").innerHTML=fmt(e,1)+"<small>кг</small>";
+      $("b-line").innerHTML="<b>"+fmt(w,2)+" × "+st.bReps+" @"+rpeStr(st.bRpe)+"</b> — это "+fmt(pb*100,1)+"% от максимума";
+      $("c-out").innerHTML=fmt(round(e*pc),2)+"<small>кг</small>";
+      $("c-line").innerHTML="<b>"+st.cReps+" × @"+rpeStr(st.cRpe)+"</b> = "+fmt(pc*100,1)+"% · точно "+fmt(e*pc,1)+" кг";
+    } else {["b-out","c-out"].forEach(function(id){$(id).textContent="—"}); $("b-line").textContent="Введите вес подхода"; $("c-line").textContent="";}
+    buildTable(); save();
+  }
+
+  function buildTable(){
+    var hr=st.tab==="a"?st.aRpe:st.cRpe, hp=st.tab==="a"?st.aReps:st.cReps;
+    var h="<thead><tr><th>RPE</th>"+REPS.map(function(r){return "<th>"+r+"</th>"}).join("")+"</tr></thead><tbody>";
+    RPE.forEach(function(r){
+      h+="<tr><th>"+rpeStr(r)+"</th>"+P[r].map(function(v,i){
+        return "<td"+(r===hr&&i+1===hp?' class="hl"':"")+">"+fmt(v,1)+"</td>";
+      }).join("")+"</tr>";
+    });
+    $("pct").innerHTML=h+"</tbody>";
+  }
+  showTab(); calc();
+})();
+</script>
+<script>
+(function(){
+  var tg=window.Telegram&&window.Telegram.WebApp;
+  if(!tg||!tg.initData&&!tg.platform) return;
+  try{
+    tg.ready(); tg.expand();
+    function apply(){ if(tg.colorScheme) document.documentElement.setAttribute('data-theme',tg.colorScheme);
+      var bg=getComputedStyle(document.body).backgroundColor; try{tg.setHeaderColor(bg);tg.setBackgroundColor(bg);}catch(e){} }
+    apply(); tg.onEvent('themeChanged',apply);
+    document.addEventListener('click',function(e){ if(e.target.closest('button')&&tg.HapticFeedback) tg.HapticFeedback.selectionChanged(); });
+  }catch(e){}
+})();
+</script>
+</body></html>
